@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   nextjs-app:
-    image: ${DOCKER_USERNAME}/nextjs-app:${FRONTEND_IMAGE_TAG}
+    image: ${DOCKER_USERNAME}/${FRONTEND_IMAGE_NAME}:${FRONTEND_IMAGE_TAG}
     container_name: nextjs-app
     restart: unless-stopped
 
@@ -10,6 +10,8 @@ services:
       - '3000:3000'
 
     environment:
+      - FRONTEND_IMAGE_NAME=${FRONTEND_IMAGE_NAME}
+
       - NODE_ENV=${NODE_ENV}
 
       - PROXY_ENDPOINT=http://nestjs-app:4000
@@ -53,7 +55,7 @@ services:
         max-file: '3'
 
   nestjs-app:
-    image: ${DOCKER_USERNAME}/nestjs-app:${BACKEND_IMAGE_TAG}
+    image: ${DOCKER_USERNAME}/${BACKEND_IMAGE_NAME}:${BACKEND_IMAGE_TAG}
     container_name: nestjs-app
     restart: unless-stopped
 
@@ -61,6 +63,8 @@ services:
       - '4000:4000'
 
     environment:
+      - BACKEND_IMAGE_NAME=${BACKEND_IMAGE_NAME}
+
       - NODE_ENV=${NODE_ENV}
       - APP_PORT=4000
       - PORT=4000
