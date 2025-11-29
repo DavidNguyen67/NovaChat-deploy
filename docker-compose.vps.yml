@@ -1,21 +1,58 @@
 version: '3.8'
 
 services:
-  nextjs-app:
-    image: ${DOCKER_USERNAME}/${FRONTEND_IMAGE_NAME}:${FRONTEND_IMAGE_TAG}
-    container_name: nextjs-app
-    restart: unless-stopped
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: nginx
+  #   restart: unless-stopped
 
-    ports:
-      - '3000:3000'
+  #   ports:
+  #     - '80:80'
+  #     - '443:443'
+
+  #   volumes:
+  #     - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./nginx/conf.d:/etc/nginx/conf.d:ro
+  #     - ./certbot/conf:/etc/letsencrypt:ro
+  #     - ./certbot/www:/var/www/certbot:ro
+
+  #   networks:
+  #     - app-network
+
+  #   depends_on:
+  #     - nextjs-app
+  #     - nestjs-app
+
+  #   logging:
+  #     driver: 'json-file'
+  #     options:
+  #       max-size: '10m'
+  #       max-file: '3'
+
+  # certbot:
+  #   image: certbot/certbot
+  #   container_name: certbot
+  #   restart: unless-stopped
+
+  #   volumes:
+  #     - ./certbot/conf:/etc/letsencrypt
+  #     - ./certbot/www:/var/www/certbot
+
+  #   entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+  #   networks:
+  #     - app-network
+
+  nextjs-app:
+    env_file:
+      - .env.production
 
     environment:
-      - FRONTEND_IMAGE_NAME=${FRONTEND_IMAGE_NAME}
+      - NODE_ENV=production
+      - PORT=${FRONTEND_PORT}
 
-      - NODE_ENV=${NODE_ENV}
-
-      - PROXY_ENDPOINT=http://nestjs-app:4000
-      - PROXY_API_KEY=${API_KEY}
+      - PROXY_ENDPOINT=${PROXY_ENDPOINT}
+      - PROXY_API_KEY=${PROXY_API_KEY}
 
       - MEDIA_ENDPOINT=${MEDIA_ENDPOINT}
 
@@ -29,11 +66,19 @@ services:
       - NEXT_PUBLIC_SOCKET_PATH=${NEXT_PUBLIC_SOCKET_PATH}
       - NEXT_PUBLIC_SOCKET_SECURE=${NEXT_PUBLIC_SOCKET_SECURE}
 
+    image: ${DOCKER_USERNAME}/${FRONTEND_IMAGE_NAME}:${FRONTEND_IMAGE_TAG}
+    container_name: nextjs-app
+    restart: unless-stopped
+
+    expose:
+      - '3000'
+
     networks:
       - app-network
 
     depends_on:
-      - nestjs-app
+      nestjs-app:
+        condition: service_healthy
 
     healthcheck:
       test:
@@ -55,40 +100,21 @@ services:
         max-file: '3'
 
   nestjs-app:
-    image: ${DOCKER_USERNAME}/${BACKEND_IMAGE_NAME}:${BACKEND_IMAGE_TAG}
-    container_name: nestjs-app
-    restart: unless-stopped
-
-    ports:
-      - '4000:4000'
+    env_file:
+      - .env.production
 
     environment:
-      - BACKEND_IMAGE_NAME=${BACKEND_IMAGE_NAME}
-
-      - NODE_ENV=${NODE_ENV}
-      - APP_PORT=4000
-      - PORT=4000
+      - NODE_ENV=production
+      - PORT=${BACKEND_PORT}
 
       - API_KEY=${API_KEY}
 
-      - MONGO_PORT=27017
-      - MONGO_ROOT_USERNAME=${MONGO_ROOT_USERNAME}
-      - MONGO_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD}
-      - MONGO_DATABASE=${MONGO_DATABASE}
+      - MONGODB_URI=${MONGODB_URI}
+      - POSTGRES_URI=${POSTGRES_URI}
 
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DATABASE=${POSTGRES_DATABASE}
-
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
-
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
-      - SUPABASE_STORAGE_BUCKET=${SUPABASE_STORAGE_BUCKET}
 
       - JWT_SECRET=${JWT_SECRET}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
@@ -97,6 +123,13 @@ services:
 
       - THROTTLE_TTL=${THROTTLE_TTL}
       - THROTTLE_LIMIT=${THROTTLE_LIMIT}
+
+    image: ${DOCKER_USERNAME}/${BACKEND_IMAGE_NAME}:${BACKEND_IMAGE_TAG}
+    container_name: nestjs-app
+    restart: unless-stopped
+
+    expose:
+      - '4000'
 
     networks:
       - app-network
@@ -141,6 +174,7 @@ services:
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./backups/postgres:/backups
 
     networks:
       - app-network
@@ -162,10 +196,16 @@ services:
     container_name: redis
     restart: unless-stopped
 
-    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD}
+      --appendonly yes
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
 
     volumes:
       - redis_data:/data
+      - ./backups/redis:/backups
 
     networks:
       - app-network
@@ -182,6 +222,7 @@ services:
         max-size: '10m'
         max-file: '3'
 
+  # MongoDB Database
   mongodb:
     image: mongo:7
     container_name: mongodb
@@ -195,6 +236,7 @@ services:
     volumes:
       - mongodb_data:/data/db
       - mongodb_config:/data/configdb
+      - ./backups/mongodb:/backups
 
     networks:
       - app-network
