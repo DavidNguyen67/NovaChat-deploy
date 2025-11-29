@@ -1,93 +1,171 @@
-# deploy
+# NovaChat VPS Stack
 
+Full-stack production deployment (Next.js frontend + NestJS backend + Postgres + MongoDB + Redis) orchestrated via Docker Compose.
 
+## Contents
 
-## Getting started
+- `docker-compose.vps.yml` service definitions
+- `deploy.sh` guided deployment script
+- `.env.example` (create from `.env.development`, do NOT commit real secrets)
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## Architecture
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+Frontend (Next.js) → Backend (NestJS REST / WebSocket) → Databases (Postgres, MongoDB) + Cache (Redis) + External (Supabase storage). Internal bridge network `app-network`. Healthchecks ensure startup sequence.
 
-## Add your files
+Services:
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+- nextjs-app: Serves UI (port 3000)
+- nestjs-app: API + auth + rate limiting (port 4000)
+- postgres: Relational storage
+- mongodb: Document storage
+- redis: Cache / rate limiting
+- supabase (external): Media storage
 
-```
-cd existing_repo
-git remote add origin https://gitlab.com/nova4183248/deploy.git
-git branch -M main
-git push -uf origin main
-```
+## Prerequisites
 
-## Integrate with your tools
+- Docker + Docker Compose v2
+- Bash shell
+- Access to Docker Hub images (`DOCKER_USERNAME/nextjs-app`, `DOCKER_USERNAME/nestjs-app`)
+- Properly provisioned server firewall (open 3000 / 4000 only if needed)
 
-- [ ] [Set up project integrations](https://gitlab.com/nova4183248/deploy/-/settings/integrations)
+## Setup
 
-## Collaborate with your team
+1. Copy env template:
+   cp .env.development .env
+2. Edit `.env` values (replace placeholders, rotate secrets, remove demo keys).
+3. Log in to Docker:
+   docker login
+4. Pull images (optional manual):
+   docker pull DOCKER_USERNAME/nextjs-app:latest
+   docker pull DOCKER_USERNAME/nestjs-app:latest
+5. Run deployment:
+   ./deploy.sh (full stack)
+   ./deploy.sh databases (only data layer)
+   ./deploy.sh backend (API after databases)
+   ./deploy.sh frontend (UI after backend)
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+## Environment Variables (summary)
 
-## Test and Deploy
+Security: Never commit real secrets.
 
-Use the built-in continuous integration in GitLab.
+Core:
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+- DOCKER_USERNAME: Registry namespace
+- FRONTEND_IMAGE_TAG / BACKEND_IMAGE_TAG: Image tags
+- NODE_ENV: production | development
 
-***
+Auth / API:
 
-# Editing this README
+- API_KEY: Internal service key (rotate)
+- JWT_SECRET / JWT_REFRESH_SECRET: Min 32 chars
+- JWT_EXPIRES_IN / JWT_REFRESH_EXPIRES_IN: e.g. 15m / 7d
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+Database:
 
-## Suggestions for a good README
+- POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DATABASE
+- MONGO_ROOT_USERNAME / MONGO_ROOT_PASSWORD / MONGO_DATABASE
+- REDIS_PASSWORD
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+External:
 
-## Name
-Choose a self-explaining name for your project.
+- SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / SUPABASE_STORAGE_BUCKET
+- MEDIA_ENDPOINT: Public media base
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+Frontend Public Config:
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+- NEXT_PUBLIC_FETCH_COUNT
+- NEXT_PUBLIC_SOCKET_HOSTNAME / PORT / PATH / SECURE
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+Rate Limiting:
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+- THROTTLE_TTL / THROTTLE_LIMIT
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+## Deployment Script Highlights (`deploy.sh`)
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+- Loads `.env`
+- Pulls images if tags provided
+- Starts databases, waits for health
+- Sequential startup with health probes
+- Shows logs and prunes unused images
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+Usage:
+./deploy.sh all
+./deploy.sh backend
+./deploy.sh frontend
+./deploy.sh databases
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+## Healthchecks
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+- nextjs-app: GET /
+- nestjs-app: GET /health
+- postgres: pg_isready
+- redis: INCR ping
+- mongodb: ping command via mongosh
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+## Common Commands
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+View status:
+docker-compose -f docker-compose.vps.yml ps
+Tail logs:
+docker-compose -f docker-compose.vps.yml logs -f nestjs-app
+Restart a service:
+docker-compose -f docker-compose.vps.yml restart redis
+Stop all:
+docker-compose -f docker-compose.vps.yml down
+
+## Data Persistence
+
+Named volumes:
+
+- postgres_data
+- redis_data
+- mongodb_data
+- mongodb_config
+
+Backup recommendation (example):
+docker run --rm -v postgres_data:/var/lib/postgresql/data -v $(pwd):/backup alpine tar -czf /backup/postgres_data.tar.gz /var/lib/postgresql/data
+
+## Security Checklist
+
+- Replace all placeholder secrets
+- Enforce strong passwords (≥ 16 chars)
+- Restrict ports via firewall (only 3000/4000 if public)
+- Rotate API and JWT secrets regularly
+- Disable default admin accounts externally
+- Keep images updated (re-pull weekly)
+
+## Troubleshooting
+
+Frontend unhealthy:
+
+- Check API_KEY and PROXY_ENDPOINT reachability.
+  Backend unhealthy:
+- Verify database containers show healthy.
+  Mongo auth failure:
+- Ensure username/password match `.env`.
+  Redis failures:
+- Confirm REDIS_PASSWORD matches command.
+  Port conflicts:
+- Ensure no host processes already occupy 3000 / 4000.
+
+Check container health states:
+docker inspect --format='{{.State.Health.Status}}' nestjs-app
+
+## Extending
+
+Add services by appending to `docker-compose.vps.yml` under same `app-network`. Use healthchecks for orderly sequencing.
+
+## Cleanup
+
+Remove stopped containers/images:
+docker system prune -f
+
+## Notes
+
+- Do not commit `.env` with real secrets.
+- Use tagged images for reproducibility (avoid mutable latest).
+- Consider adding automated backups + monitoring (Prometheus / Grafana) later.
 
 ## License
-For open source projects, say how it is licensed.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Proprietary or specify appropriate license.
