@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  nextjs-app:
+    env_file:
+      - .env.development
+
+    environment:
+      - NODE_ENV=${NODE_ENV}
+      - PORT=${FRONTEND_PORT}
+      - PROXY_ENDPOINT=${PROXY_ENDPOINT}
+
+    image: ${DOCKER_USERNAME}/${FRONTEND_IMAGE_NAME}:${FRONTEND_IMAGE_TAG}
+    container_name: nextjs-app
+    restart: unless-stopped
+
+    ports:
+      - '${FRONTEND_PORT}:3000'
+
+    networks:
+      - app-network
+
+    depends_on:
+      - nestjs-app
+
+  nestjs-app:
+    env_file:
+      - .env.development
+
+    environment:
+      - NODE_ENV=${NODE_ENV}
+      - PORT=${BACKEND_PORT}
+      - POSTGRES_URI=${POSTGRES_URI}
+      - MONGODB_URI=${MONGODB_URI}
+      - REDIS_HOST=${REDIS_HOST}
+
+    image: ${DOCKER_USERNAME}/${BACKEND_IMAGE_NAME}:${BACKEND_IMAGE_TAG}
+    container_name: nestjs-app
+    restart: unless-stopped
+
+    expose:
+      - '4000'
+
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
