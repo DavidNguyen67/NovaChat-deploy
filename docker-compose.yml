@@ -266,6 +266,71 @@ services:
         max-size: '10m'
         max-file: '3'
 
+  jenkins:
+    env_file:
+      - .env.development
+
+    environment:
+      - DOCKER_HOST=${DOCKER_HOST}
+      - DOCKER_CERT_PATH=${DOCKER_CERT_PATH}
+      - DOCKER_TLS_VERIFY=${DOCKER_TLS_VERIFY}
+
+    image: jenkins/jenkins:lts-jdk17
+    container_name: jenkins
+    restart: unless-stopped
+    privileged: true
+    user: root
+
+    ports:
+      - '${JENKINS_WEB_PORT}:8080'
+      - '${JENKINS_AGENT_PORT}:50000'
+
+    volumes:
+      - jenkins_data:/var/jenkins_home
+      - jenkins_docker_certs:/certs/client:ro
+      - ./jenkins/backups:/backups
+
+    networks:
+      - app-network
+
+    depends_on:
+      - docker-dind
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -f http://localhost:8080/login || exit 1']
+      interval: ${HEALTHCHECK_INTERVAL}
+      timeout: ${HEALTHCHECK_TIMEOUT}
+      retries: ${HEALTHCHECK_RETRIES}
+      start_period: ${HEALTHCHECK_START_PERIOD}
+
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: ${LOG_MAX_SIZE}
+        max-file: ${LOG_MAX_FILE}
+
+  docker-dind:
+    env_file:
+      - .env.development
+    environment:
+      - DOCKER_TLS_CERTDIR=${DOCKER_TLS_CERTDIR}
+
+    image: docker:dind
+    container_name: jenkins-docker
+    restart: unless-stopped
+    privileged: true
+
+    volumes:
+      - jenkins_docker_certs:/certs/client
+      - jenkins_data:/var/jenkins_home
+
+    networks:
+      app-network:
+        aliases:
+          - docker
+
+    command: --storage-driver=${DOCKER_STORAGE_DRIVER}
+
 volumes:
   postgres_data:
     driver: local
@@ -274,6 +339,10 @@ volumes:
   mongodb_data:
     driver: local
   mongodb_config:
+    driver: local
+  jenkins_data:
+    driver: local
+  jenkins_docker_certs:
     driver: local
 
 networks:
