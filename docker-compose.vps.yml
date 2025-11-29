@@ -45,10 +45,10 @@ services:
 
   nextjs-app:
     env_file:
-      - .env.production
+      - .env.development
 
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=${NODE_ENV}
       - PORT=${FRONTEND_PORT}
 
       - PROXY_ENDPOINT=${PROXY_ENDPOINT}
@@ -101,10 +101,10 @@ services:
 
   nestjs-app:
     env_file:
-      - .env.production
+      - .env.development
 
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=${NODE_ENV}
       - PORT=${BACKEND_PORT}
 
       - API_KEY=${API_KEY}
