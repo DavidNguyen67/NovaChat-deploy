@@ -41,8 +41,14 @@ services:
     ports:
       - '${BACKEND_PORT}:4000'
 
+    volumes:
+      - nestjs_logs:/app/logs
+
     networks:
       - app-network
+
+volumes:
+  nextjs_logs:
 
 networks:
   app-network:
