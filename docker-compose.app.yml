@@ -29,7 +29,7 @@ services:
 
     environment:
       - NODE_ENV=${NODE_ENV}
-      - PORT=${BACKEND_PORT}
+      - APP_PORT=${BACKEND_PORT}
       - POSTGRES_URI=${POSTGRES_URI}
       - MONGODB_URI=${MONGODB_URI}
       - REDIS_HOST=${REDIS_HOST}
