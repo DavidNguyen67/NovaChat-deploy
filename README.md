@@ -1,171 +1,290 @@
-# NovaChat VPS Stack
+# NovaChat VPS Deployment
 
-Full-stack production deployment (Next.js frontend + NestJS backend + Postgres + MongoDB + Redis) orchestrated via Docker Compose.
+Docker-based deployment configuration for NovaChat application stack including NextJS frontend, NestJS backend, and supporting services.
 
-## Contents
+## 📋 Overview
 
-- `docker-compose.vps.yml` service definitions
-- `deploy.sh` guided deployment script
-- `.env.example` (create from `.env.development`, do NOT commit real secrets)
+This repository contains Docker Compose configurations for deploying a full-stack application with:
 
-## Architecture
+- **Frontend**: Next.js application
+- **Backend**: NestJS API server
+- **Databases**: PostgreSQL, MongoDB, Redis
+- **CI/CD**: Jenkins with Docker-in-Docker
 
-Frontend (Next.js) → Backend (NestJS REST / WebSocket) → Databases (Postgres, MongoDB) + Cache (Redis) + External (Supabase storage). Internal bridge network `app-network`. Healthchecks ensure startup sequence.
+## 🏗️ Architecture
 
-Services:
+### Services
 
-- nextjs-app: Serves UI (port 3000)
-- nestjs-app: API + auth + rate limiting (port 4000)
-- postgres: Relational storage
-- mongodb: Document storage
-- redis: Cache / rate limiting
-- supabase (external): Media storage
+#### Application Stack (`docker-compose.app.yml`)
 
-## Prerequisites
+- **nextjs-app**: Frontend application (port 3000)
+- **nestjs-app**: Backend API (port 4000)
 
-- Docker + Docker Compose v2
-- Bash shell
-- Access to Docker Hub images (`DOCKER_USERNAME/nextjs-app`, `DOCKER_USERNAME/nestjs-app`)
-- Properly provisioned server firewall (open 3000 / 4000 only if needed)
+#### Database Stack (`docker-compose.databases.yml`)
 
-## Setup
+- **postgres**: PostgreSQL 16 (port 5432)
+- **redis**: Redis 7 (port 6379)
+- **mongodb**: MongoDB 7 (port 27017)
 
-1. Copy env template:
-   cp .env.development .env
-2. Edit `.env` values (replace placeholders, rotate secrets, remove demo keys).
-3. Log in to Docker:
-   docker login
-4. Pull images (optional manual):
-   docker pull DOCKER_USERNAME/nextjs-app:latest
-   docker pull DOCKER_USERNAME/nestjs-app:latest
-5. Run deployment:
-   ./deploy.sh (full stack)
-   ./deploy.sh databases (only data layer)
-   ./deploy.sh backend (API after databases)
-   ./deploy.sh frontend (UI after backend)
+#### Jenkins Stack (`docker-compose.jenkins.yml`)
 
-## Environment Variables (summary)
+- **jenkins**: Jenkins LTS with JDK 17 (ports 8080, 50000)
+- **docker-dind**: Docker-in-Docker for Jenkins builds
 
-Security: Never commit real secrets.
+## 🚀 Quick Start
 
-Core:
+### Prerequisites
 
-- DOCKER_USERNAME: Registry namespace
-- FRONTEND_IMAGE_TAG / BACKEND_IMAGE_TAG: Image tags
-- NODE_ENV: production | development
+- Docker Engine 20.10+
+- Docker Compose v2.0+
+- Minimum 4GB RAM
+- 20GB free disk space
 
-Auth / API:
+### Installation
 
-- API_KEY: Internal service key (rotate)
-- JWT_SECRET / JWT_REFRESH_SECRET: Min 32 chars
-- JWT_EXPIRES_IN / JWT_REFRESH_EXPIRES_IN: e.g. 15m / 7d
+1. **Clone the repository**
 
-Database:
+```bash
+git clone <repository-url>
+cd vps
+```
 
-- POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DATABASE
-- MONGO_ROOT_USERNAME / MONGO_ROOT_PASSWORD / MONGO_DATABASE
-- REDIS_PASSWORD
+2. **Create environment files**
 
-External:
+```bash
+# Copy example files
+cp .env.example .env.development
+cp .env.databases.example .env.databases
+cp .env.jenkins.example .env.jenkins
 
-- SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / SUPABASE_STORAGE_BUCKET
-- MEDIA_ENDPOINT: Public media base
+# Edit with your values
+nano .env.development
+```
 
-Frontend Public Config:
+3. **Start databases**
 
-- NEXT_PUBLIC_FETCH_COUNT
-- NEXT_PUBLIC_SOCKET_HOSTNAME / PORT / PATH / SECURE
+```bash
+docker compose -f docker-compose.databases.yml up -d
+```
 
-Rate Limiting:
+4. **Start applications**
 
-- THROTTLE_TTL / THROTTLE_LIMIT
+```bash
+docker compose -f docker-compose.app.yml up -d
+```
 
-## Deployment Script Highlights (`deploy.sh`)
+5. **Start Jenkins (optional)**
 
-- Loads `.env`
-- Pulls images if tags provided
-- Starts databases, waits for health
-- Sequential startup with health probes
-- Shows logs and prunes unused images
+```bash
+docker compose -f docker-compose.jenkins.yml up -d
+```
 
-Usage:
-./deploy.sh all
-./deploy.sh backend
-./deploy.sh frontend
-./deploy.sh databases
+## ⚙️ Configuration
 
-## Healthchecks
+### Environment Files
 
-- nextjs-app: GET /
-- nestjs-app: GET /health
-- postgres: pg_isready
-- redis: INCR ping
-- mongodb: ping command via mongosh
+#### `.env.development` - Application Configuration
 
-## Common Commands
+```env
+# Docker Images
+DOCKER_USERNAME=your_docker_username
+FRONTEND_IMAGE_NAME=nextjs-app
+FRONTEND_IMAGE_TAG=latest
+BACKEND_IMAGE_NAME=nestjs-app
+BACKEND_IMAGE_TAG=latest
 
-View status:
-docker-compose -f docker-compose.vps.yml ps
-Tail logs:
-docker-compose -f docker-compose.vps.yml logs -f nestjs-app
-Restart a service:
-docker-compose -f docker-compose.vps.yml restart redis
-Stop all:
-docker-compose -f docker-compose.vps.yml down
+# Application
+NODE_ENV=development
+FRONTEND_PORT=3000
+BACKEND_PORT=4000
 
-## Data Persistence
+# API & Proxy
+API_KEY=your_api_key_here
+PROXY_ENDPOINT=http://nestjs-app:4000
+PROXY_API_KEY=your_api_key_here
 
-Named volumes:
+# Database URIs
+POSTGRES_URI=postgresql://postgres:password@postgres:5432/myapp_db
+MONGODB_URI=mongodb://admin:password@mongodb:27017/myapp_db?authSource=admin
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_PASSWORD=your_redis_password
 
-- postgres_data
-- redis_data
-- mongodb_data
-- mongodb_config
+# JWT
+JWT_SECRET=your_jwt_secret_min_32_chars
+JWT_EXPIRES_IN=15m
+JWT_REFRESH_SECRET=your_refresh_secret_min_32_chars
+JWT_REFRESH_EXPIRES_IN=7d
+```
 
-Backup recommendation (example):
-docker run --rm -v postgres_data:/var/lib/postgresql/data -v $(pwd):/backup alpine tar -czf /backup/postgres_data.tar.gz /var/lib/postgresql/data
+#### `.env.databases` - Database Configuration
 
-## Security Checklist
+```env
+# PostgreSQL
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=your_strong_password
+POSTGRES_DATABASE=myapp_db
+POSTGRES_PORT=5432
 
-- Replace all placeholder secrets
-- Enforce strong passwords (≥ 16 chars)
-- Restrict ports via firewall (only 3000/4000 if public)
-- Rotate API and JWT secrets regularly
-- Disable default admin accounts externally
-- Keep images updated (re-pull weekly)
+# MongoDB
+MONGO_ROOT_USERNAME=admin
+MONGO_ROOT_PASSWORD=your_strong_password
+MONGO_PORT=27017
 
-## Troubleshooting
+# Redis
+REDIS_PASSWORD=your_strong_password
+REDIS_PORT=6379
+```
 
-Frontend unhealthy:
+#### `.env.jenkins` - Jenkins Configuration
 
-- Check API_KEY and PROXY_ENDPOINT reachability.
-  Backend unhealthy:
-- Verify database containers show healthy.
-  Mongo auth failure:
-- Ensure username/password match `.env`.
-  Redis failures:
-- Confirm REDIS_PASSWORD matches command.
-  Port conflicts:
-- Ensure no host processes already occupy 3000 / 4000.
+```env
+# Jenkins
+JENKINS_WEB_PORT=8080
+JENKINS_AGENT_PORT=50000
 
-Check container health states:
-docker inspect --format='{{.State.Health.Status}}' nestjs-app
+# Docker-in-Docker
+DOCKER_TLS_CERTDIR=/certs
+DOCKER_STORAGE_DRIVER=overlay2
+DOCKER_HOST=tcp://docker:2376
+DOCKER_CERT_PATH=/certs/client
+DOCKER_TLS_VERIFY=1
+```
 
-## Extending
+## 📝 Usage
 
-Add services by appending to `docker-compose.vps.yml` under same `app-network`. Use healthchecks for orderly sequencing.
+### Managing Services
 
-## Cleanup
+```bash
+# Start all services
+docker compose -f docker-compose.databases.yml -f docker-compose.app.yml up -d
 
-Remove stopped containers/images:
-docker system prune -f
+# Stop all services
+docker compose -f docker-compose.databases.yml -f docker-compose.app.yml down
 
-## Notes
+# View logs
+docker compose -f docker-compose.app.yml logs -f
 
-- Do not commit `.env` with real secrets.
-- Use tagged images for reproducibility (avoid mutable latest).
-- Consider adding automated backups + monitoring (Prometheus / Grafana) later.
+# Restart specific service
+docker compose -f docker-compose.app.yml restart nextjs-app
 
-## License
+# Check service health
+docker compose -f docker-compose.databases.yml ps
+```
 
-Proprietary or specify appropriate license.
+### Database Backups
+
+Backup directories are mounted at:
+
+- PostgreSQL: `./backups/postgres`
+- MongoDB: `./backups/mongodb`
+- Redis: `./backups/redis`
+
+### Accessing Services
+
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:4000
+- **Jenkins**: http://localhost:8080
+- **PostgreSQL**: localhost:5432
+- **MongoDB**: localhost:27017
+- **Redis**: localhost:6379
+
+## 🔧 Development
+
+### Building Images
+
+```bash
+# Build frontend
+docker build -t ${DOCKER_USERNAME}/nextjs-app:latest ./frontend
+
+# Build backend
+docker build -t ${DOCKER_USERNAME}/nestjs-app:latest ./backend
+
+# Push to registry
+docker push ${DOCKER_USERNAME}/nextjs-app:latest
+docker push ${DOCKER_USERNAME}/nestjs-app:latest
+```
+
+### Running in Development Mode
+
+The application uses `NODE_ENV=development` by default with hot-reload enabled.
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**Services won't start**
+
+```bash
+# Check logs
+docker compose logs <service-name>
+
+# Verify environment variables
+docker compose config
+
+# Check port conflicts
+netstat -ano | findstr "3000 4000 5432"
+```
+
+**Database connection errors**
+
+- Ensure databases are healthy: `docker compose ps`
+- Check connection strings in `.env.development`
+- Verify network connectivity: `docker network ls`
+
+**Permission errors**
+
+```bash
+# Fix volume permissions
+docker compose down -v
+docker volume prune
+```
+
+## 📊 Monitoring
+
+### Health Checks
+
+All services include health checks:
+
+- **PostgreSQL**: `pg_isready`
+- **Redis**: `redis-cli ping`
+- **MongoDB**: `mongosh ping`
+- **Applications**: HTTP endpoints
+
+### Logs
+
+```bash
+# View all logs
+docker compose logs -f
+
+# Filter by service
+docker compose logs -f nextjs-app
+
+# Last 100 lines
+docker compose logs --tail=100
+```
+
+## 🔒 Security
+
+- Never commit `.env` files with real credentials
+- Use strong passwords (min 32 characters for JWT secrets)
+- Keep Docker images updated
+- Use secrets management in production
+- Enable TLS for external connections
+
+## 📚 Additional Resources
+
+- [Docker Compose Documentation](https://docs.docker.com/compose/)
+- [Next.js Documentation](https://nextjs.org/docs)
+- [NestJS Documentation](https://docs.nestjs.com)
+- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+- [MongoDB Documentation](https://docs.mongodb.com/)
+- [Redis Documentation](https://redis.io/docs/)
+
+## 📄 License
+
+[Your License Here]
+
+## 👥 Contributing
+
+[Your Contributing Guidelines Here]
