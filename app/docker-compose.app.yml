@@ -46,7 +46,7 @@ services:
       - app-network
 
 volumes:
-  nextjs_logs:
+  nestjs_logs:
 
 networks:
   app-network:
