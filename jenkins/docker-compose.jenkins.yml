@@ -1,20 +1,22 @@
 services:
   docker-dind:
     image: docker:dind
-    container_name: docker-dind
     privileged: true
+    container_name: docker-dind
     restart: unless-stopped
+
     environment:
       DOCKER_TLS_CERTDIR: /certs
+
     volumes:
       - ./docker-dind/docker-certs-ca:/certs/ca
       - ./docker-dind/docker-certs-client:/certs/client
-      - ./docker-dind/jenkins-docker-data:/var/lib/docker
+      - jenkins-docker-data:/var/lib/docker
+
     networks:
       jenkins-network:
         aliases:
           - docker
-    command: --storage-driver=overlay2
     healthcheck:
       test: ['CMD', 'docker', 'info']
       interval: 10s
@@ -27,9 +29,10 @@ services:
       dockerfile: Dockerfile
     container_name: jenkins
     restart: unless-stopped
+
     depends_on:
       docker-dind:
-        condition: service_healthy # Đợi DinD khởi động xong
+        condition: service_healthy
 
     ports:
       - '${JENKINS_WEB_PORT}:8080'
@@ -47,11 +50,9 @@ services:
     networks:
       - jenkins-network
 
+volumes:
+  jenkins-docker-data:
+
 networks:
   jenkins-network:
     driver: bridge
-
-volumes:
-  docker-certs-ca:
-  docker-certs-client:
-  jenkins-docker-data:
