@@ -1,15 +1,42 @@
 services:
+  docker-dind:
+    image: docker:dind
+    container_name: docker-dind
+    privileged: true
+    restart: unless-stopped
+    environment:
+      DOCKER_TLS_CERTDIR: /certs
+    volumes:
+      - ./docker-dind/docker-certs-ca:/certs/ca
+      - ./docker-dind/docker-certs-client:/certs/client
+      - ./docker-dind/jenkins-docker-data:/var/lib/docker
+    networks:
+      jenkins-network:
+        aliases:
+          - docker
+    command: --storage-driver=overlay2
+
   jenkins:
-    image: jenkins/jenkins:jdk21
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: jenkins
     restart: unless-stopped
+    depends_on:
+      - docker-dind
 
     ports:
       - '${JENKINS_WEB_PORT}:8080'
       - '${JENKINS_AGENT_PORT}:50000'
 
+    environment:
+      DOCKER_HOST: tcp://docker:2376
+      DOCKER_CERT_PATH: /certs/client
+      DOCKER_TLS_VERIFY: 1
+
     volumes:
-      - ./jenkins_home:/var/jenkins_home:z
+      - ./jenkins_home:/var/jenkins_home
+      - ./docker-dind/docker-certs-client:/certs/client:ro
 
     networks:
       - jenkins-network
@@ -17,3 +44,8 @@ services:
 networks:
   jenkins-network:
     driver: bridge
+
+volumes:
+  docker-certs-ca:
+  docker-certs-client:
+  jenkins-docker-data:
