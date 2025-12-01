@@ -15,6 +15,11 @@ services:
         aliases:
           - docker
     command: --storage-driver=overlay2
+    healthcheck:
+      test: ['CMD', 'docker', 'info']
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   jenkins:
     build:
@@ -23,7 +28,8 @@ services:
     container_name: jenkins
     restart: unless-stopped
     depends_on:
-      - docker-dind
+      docker-dind:
+        condition: service_healthy # Đợi DinD khởi động xong
 
     ports:
       - '${JENKINS_WEB_PORT}:8080'
