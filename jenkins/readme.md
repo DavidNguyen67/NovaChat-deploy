@@ -1,5 +1,18 @@
 # Jenkins CI/CD - Hướng Dẫn Đơn Giản
 
+## Kiểm tra cấu hình
+
+```bash
+# Kiểm tra file .env.jenkins có đúng không
+cat .env.jenkins
+
+# Kiểm tra Docker Compose có đọc được env không
+docker compose --env-file .env.jenkins -f docker-compose.jenkins.yml config
+
+# Kiểm tra biến môi trường có được load không
+docker compose --env-file .env.jenkins -f docker-compose.jenkins.yml config | grep -A 5 "environment:"
+```
+
 ## Khởi động Jenkins
 
 ```bash
