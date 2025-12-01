@@ -4,9 +4,6 @@ services:
     container_name: postgres
     restart: unless-stopped
 
-    env_file:
-      - .env.databases
-
     ports:
       - '${POSTGRES_PORT}:5432'
 

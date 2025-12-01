@@ -4,9 +4,6 @@ services:
     container_name: jenkins
     restart: unless-stopped
 
-    env_file:
-      - .env.jenkins
-
     ports:
       - '${JENKINS_WEB_PORT}:8080'
       - '${JENKINS_AGENT_PORT}:50000'

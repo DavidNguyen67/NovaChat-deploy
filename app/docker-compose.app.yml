@@ -1,15 +1,12 @@
 services:
-  nextjs-app:
-    env_file:
-      - .env.development
-
+  nova-frontend:
     environment:
       - NODE_ENV=${NODE_ENV}
       - PORT=${FRONTEND_PORT}
       - PROXY_ENDPOINT=${PROXY_ENDPOINT}
 
     image: ${DOCKER_USERNAME}/${FRONTEND_IMAGE_NAME}:${FRONTEND_IMAGE_TAG}
-    container_name: nextjs-app
+    container_name: ${FRONTEND_IMAGE_NAME}
     restart: unless-stopped
 
     ports:
@@ -19,12 +16,9 @@ services:
       - app-network
 
     depends_on:
-      - nestjs-app
+      - nova-backend
 
-  nestjs-app:
-    env_file:
-      - .env.development
-
+  nova-backend:
     environment:
       - NODE_ENV=${NODE_ENV}
       - APP_PORT=${BACKEND_PORT}
@@ -33,20 +27,17 @@ services:
       - REDIS_HOST=${REDIS_HOST}
 
     image: ${DOCKER_USERNAME}/${BACKEND_IMAGE_NAME}:${BACKEND_IMAGE_TAG}
-    container_name: nestjs-app
+    container_name: ${BACKEND_IMAGE_NAME}
     restart: unless-stopped
 
     ports:
       - '${BACKEND_PORT}:4000'
 
     volumes:
-      - nestjs_logs:/app/logs
+      - ./nestjs_logs:/app/logs
 
     networks:
       - app-network
-
-volumes:
-  nestjs_logs:
 
 networks:
   app-network:
